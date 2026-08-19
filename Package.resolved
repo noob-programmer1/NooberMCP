@@ -1,0 +1,14 @@
+{
+  "pins" : [
+    {
+      "identity" : "noober-ios",
+      "kind" : "remoteSourceControl",
+      "location" : "https://github.com/noob-programmer1/Noober-iOS.git",
+      "state" : {
+        "revision" : "ffbef410d8302936b4f3180c9dce1e2efbbf9d06",
+        "version" : "1.2.0"
+      }
+    }
+  ],
+  "version" : 2
+}

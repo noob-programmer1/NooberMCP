@@ -1,0 +1,8 @@
+{
+  "mcpServers": {
+    "noober": {
+      "command": "npx",
+      "args": ["-y", "noober-mcp"]
+    }
+  }
+}

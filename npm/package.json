@@ -1,0 +1,41 @@
+{
+  "name": "noober-mcp",
+  "version": "1.0.0",
+  "description": "MCP server for iOS app testing — see inside your running app: network calls, WebSocket frames, logs, UserDefaults, screen layout, and API mocking. Works with Claude Code, Cursor, Codex, Windsurf.",
+  "bin": {
+    "noober-mcp": "./run.js"
+  },
+  "files": [
+    "run.js",
+    "README.md"
+  ],
+  "engines": {
+    "node": ">=18"
+  },
+  "os": [
+    "darwin"
+  ],
+  "keywords": [
+    "mcp",
+    "model-context-protocol",
+    "ios",
+    "testing",
+    "qa",
+    "noober",
+    "network-inspector",
+    "websocket",
+    "simulator",
+    "xcode",
+    "claude"
+  ],
+  "author": "NoobQA",
+  "license": "MIT",
+  "homepage": "https://noobqa.com",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/noob-programmer1/NooberMCP.git"
+  },
+  "bugs": {
+    "url": "https://github.com/noob-programmer1/NooberMCP/issues"
+  }
+}

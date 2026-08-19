@@ -1,0 +1,26 @@
+{
+  "name": "noobqa",
+  "description": "Debugging and QA tooling for iOS apps built with the Noober SDK",
+  "owner": {
+    "name": "NoobQA",
+    "url": "https://noobqa.com"
+  },
+  "plugins": [
+    {
+      "name": "noober",
+      "displayName": "Noober",
+      "source": "./plugins/noober",
+      "description": "See inside your running iOS app: network calls, WebSocket frames, logs, UserDefaults, screen layout, and API mocking.",
+      "version": "1.0.0",
+      "category": "testing",
+      "tags": ["ios", "testing", "qa", "debugging", "simulator", "network"],
+      "author": {
+        "name": "NoobQA",
+        "url": "https://noobqa.com"
+      },
+      "homepage": "https://noobqa.com",
+      "repository": "https://github.com/noob-programmer1/NooberMCP",
+      "license": "MIT"
+    }
+  ]
+}
