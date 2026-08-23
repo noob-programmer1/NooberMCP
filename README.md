@@ -26,6 +26,9 @@ Claude Code ──MCP──> noober-mcp ──TCP/Bonjour──> Noober SDK in y
 /plugin install noober@noobqa
 ```
 
+The plugin ships a `/noober:setup` skill that adds the SDK to your app and wires up
+`start()` in the right place — run it once after installing.
+
 ### Any MCP client
 
 ```bash
@@ -104,6 +107,10 @@ binary. If you built from source, run from the repo root so `Bundled/` is alongs
 
 **Two apps at once** — port 54321 is claimed by the first app; the second falls back to
 Bonjour. Connect to one app at a time for predictable results.
+
+**Two servers at once** — the HTTP API starts on 8686 and scans up to 8695 if that's
+taken, so a second instance still gets an API. The live port is written to
+`~/.noober-mcp/port`. Set `NOOBER_PORT` to pin it and skip the scan.
 
 ## Build from source
 

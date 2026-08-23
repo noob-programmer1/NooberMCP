@@ -6,12 +6,15 @@ import Foundation
 final class HTTPServer {
     private let mcpServer: MCPServer
     private var serverSocket: Int32 = -1
-    private let port: UInt16
+    private var port: UInt16
+    private let portWasExplicit: Bool
     private var running = false
 
     init(mcpServer: MCPServer, port: UInt16 = 8686) {
         self.mcpServer = mcpServer
-        self.port = UInt16(ProcessInfo.processInfo.environment["NOOBER_PORT"].flatMap { Int($0) } ?? Int(port))
+        let explicit = ProcessInfo.processInfo.environment["NOOBER_PORT"].flatMap { Int($0) }
+        self.port = UInt16(explicit ?? Int(port))
+        self.portWasExplicit = explicit != nil
     }
 
     func start() {
@@ -21,27 +24,27 @@ final class HTTPServer {
     }
 
     private func startListening() {
-        serverSocket = socket(AF_INET, SOCK_STREAM, 0)
-        guard serverSocket >= 0 else { log("[http] Failed to create socket"); return }
+        // A second instance used to lose its HTTP API silently. Scan a small range instead.
+        // An explicit NOOBER_PORT is honoured exactly — no scanning.
+        let candidates: [UInt16] = portWasExplicit ? [port] : (0..<10).map { port &+ UInt16($0) }
 
-        var yes: Int32 = 1
-        setsockopt(serverSocket, SOL_SOCKET, SO_REUSEADDR, &yes, socklen_t(MemoryLayout<Int32>.size))
-
-        var addr = sockaddr_in()
-        addr.sin_family = sa_family_t(AF_INET)
-        addr.sin_port = port.bigEndian
-        addr.sin_addr.s_addr = INADDR_ANY
-
-        let bindResult = withUnsafePointer(to: &addr) { ptr in
-            ptr.withMemoryRebound(to: sockaddr.self, capacity: 1) { sockPtr in
-                bind(serverSocket, sockPtr, socklen_t(MemoryLayout<sockaddr_in>.size))
-            }
+        for candidate in candidates where bindSocket(on: candidate) {
+            port = candidate
+            break
         }
-        guard bindResult >= 0 else { log("[http] Failed to bind port \(port)"); return }
+
+        guard serverSocket >= 0 else {
+            let range = candidates.count == 1
+                ? "\(candidates[0])"
+                : "\(candidates[0])-\(candidates[candidates.count - 1])"
+            log("[http] No free port in \(range) — HTTP API disabled. MCP over stdio is unaffected.")
+            return
+        }
 
         listen(serverSocket, 10)
         running = true
         log("[http] Listening on http://localhost:\(port)")
+        writePortFile()
 
         while running {
             var clientAddr = sockaddr_in()
@@ -56,6 +59,38 @@ final class HTTPServer {
                 handleClient(clientSocket)
             }
         }
+    }
+
+    /// Binds a fresh socket, leaving `serverSocket` untouched on failure.
+    private func bindSocket(on candidate: UInt16) -> Bool {
+        let sock = socket(AF_INET, SOCK_STREAM, 0)
+        guard sock >= 0 else { return false }
+
+        var yes: Int32 = 1
+        setsockopt(sock, SOL_SOCKET, SO_REUSEADDR, &yes, socklen_t(MemoryLayout<Int32>.size))
+
+        var addr = sockaddr_in()
+        addr.sin_family = sa_family_t(AF_INET)
+        addr.sin_port = candidate.bigEndian
+        addr.sin_addr.s_addr = INADDR_ANY
+
+        let result = withUnsafePointer(to: &addr) { ptr in
+            ptr.withMemoryRebound(to: sockaddr.self, capacity: 1) { sockPtr in
+                bind(sock, sockPtr, socklen_t(MemoryLayout<sockaddr_in>.size))
+            }
+        }
+        guard result >= 0 else { close(sock); return false }
+
+        serverSocket = sock
+        return true
+    }
+
+    /// Record the live port so HTTP clients can find an instance that moved off the default.
+    private func writePortFile() {
+        let home = ProcessInfo.processInfo.environment["HOME"] ?? NSTemporaryDirectory()
+        let dir = home + "/.noober-mcp"
+        try? FileManager.default.createDirectory(atPath: dir, withIntermediateDirectories: true)
+        try? "\(port)".write(toFile: dir + "/port", atomically: true, encoding: .utf8)
     }
 
     private func handleClient(_ socket: Int32) {
