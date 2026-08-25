@@ -108,6 +108,15 @@ binary. If you built from source, run from the repo root so `Bundled/` is alongs
 **Two apps at once** — port 54321 is claimed by the first app; the second falls back to
 Bonjour. Connect to one app at a time for predictable results.
 
+### Writing app state
+
+`noober_set_user_default`, `noober_set_keychain` and `noober_set_cookie` (plus their
+remove counterparts) change state in the running app, so a test can start from a known
+session instead of tapping through a login. Writes are confirmed by the app and push a
+fresh sync, so an immediate read-back reflects the change.
+
+Requires the Noober SDK 1.4.1+ — the probe does not implement storage writes yet.
+
 **Two servers at once** — the HTTP API starts on 8686 and scans up to 8695 if that's
 taken, so a second instance still gets an API. The live port is written to
 `~/.noober-mcp/port`. Set `NOOBER_PORT` to pin it and skip the scan.

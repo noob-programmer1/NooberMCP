@@ -2,7 +2,7 @@
   "name": "noober",
   "displayName": "Noober",
   "description": "See inside your running iOS app: network calls, WebSocket frames, logs, UserDefaults, screen layout, and API mocking. Requires the Noober SDK in a DEBUG build.",
-  "version": "1.0.1",
+  "version": "1.0.2",
   "author": {
     "name": "NoobQA",
     "url": "https://noobqa.com"

@@ -5,8 +5,8 @@
       "kind" : "remoteSourceControl",
       "location" : "https://github.com/noob-programmer1/Noober-iOS.git",
       "state" : {
-        "revision" : "ffbef410d8302936b4f3180c9dce1e2efbbf9d06",
-        "version" : "1.2.0"
+        "revision" : "f6cfbc4ce5a74992027d79ed78c6d6da487395b5",
+        "version" : "1.4.1"
       }
     }
   ],

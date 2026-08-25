@@ -50,13 +50,13 @@ final class ProbeServer {
             self.listener = listener
             listener.start(queue: queue)
 
-            // Install interceptors
-            ProbeNetworkInterceptor.install()
+            // Network, logs, WebView console and crash handling are already live from
+            // the pre-main path; this is a no-op if the dylib bootstrapped normally.
+            ProbeEarlyInstall.run()
+
+            // These need a window / runloop, so they wait for start().
             ProbeScreenTracker.install()
-            ProbeLogCapture.install()
             ProbePerfMonitor.install()
-            ProbeWebViewConsoleCapture.install()
-            ProbeCrashHandler.install(bundleId: Bundle.main.bundleIdentifier ?? "unknown")
 
             fputs("[NooberProbe] Bonjour listener started as \"\(serviceName)\" on _noober._tcp\n", stderr)
 

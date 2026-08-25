@@ -83,7 +83,7 @@ final class MCPServer {
             ],
             "serverInfo": [
                 "name": "NooberMCP",
-                "version": "1.0.0"
+                "version": "1.0.2"
             ]
         ])
     }
@@ -295,6 +295,35 @@ final class MCPServer {
             tool("noober_timeline", "Unified timeline: correlates network requests, logs, and screen transitions in chronological order. Best for understanding 'what happened when?' after a user action.", [
                 "since_seconds": ["type": "number", "description": "Show events from last N seconds (default 30)"],
                 "limit": ["type": "number", "description": "Max events to return (default 50)"],
+            ]),
+            tool("noober_set_user_default", "Write a UserDefaults value in the running app. Types are detected automatically (numbers, booleans, JSON).", [
+                "key": ["type": "string", "description": "UserDefaults key"],
+                "value": ["type": "string", "description": "Value to write"]
+            ]),
+            tool("noober_remove_user_default", "Delete a UserDefaults key in the running app.", [
+                "key": ["type": "string", "description": "UserDefaults key to remove"]
+            ]),
+            tool("noober_set_keychain", "Write a Keychain item in the running app. Replaces an existing item with the same account and service.", [
+                "account": ["type": "string", "description": "Account name"],
+                "value": ["type": "string", "description": "Secret value"],
+                "service": ["type": "string", "description": "Service (defaults to the app's bundle id)"],
+                "itemClass": ["type": "string", "description": "genericPassword (default) or internetPassword"]
+            ]),
+            tool("noober_remove_keychain", "Delete Keychain items for an account in the running app.", [
+                "account": ["type": "string", "description": "Account name"],
+                "service": ["type": "string", "description": "Optional service filter"]
+            ]),
+            tool("noober_set_cookie", "Set an HTTP cookie in the running app's shared cookie storage.", [
+                "name": ["type": "string", "description": "Cookie name"],
+                "value": ["type": "string", "description": "Cookie value"],
+                "domain": ["type": "string", "description": "Cookie domain, e.g. api.example.com"],
+                "path": ["type": "string", "description": "Path (defaults to /)"],
+                "isSecure": ["type": "boolean", "description": "Mark the cookie Secure"],
+                "expiresInSeconds": ["type": "number", "description": "Lifetime in seconds; omit for a session cookie"]
+            ]),
+            tool("noober_remove_cookie", "Delete cookies by name from the running app.", [
+                "name": ["type": "string", "description": "Cookie name"],
+                "domain": ["type": "string", "description": "Optional domain filter"]
             ]),
             tool("noober_get_cookies", "Get HTTP cookies stored by the app (HTTPCookieStorage)", [:]),
             tool("noober_assert_element", "Assert a UI element exists with expected state. Returns PASS/FAIL. Example: assert_element(text:'Save', state:'enabled')", [

@@ -30,6 +30,8 @@ final class NooberClient: @unchecked Sendable {
     private(set) var lastFindResult: String?
     private(set) var lastScreenText: String?
     private(set) var lastScreenHTML: String?
+    private(set) var lastStorageWrite: String?
+    private(set) var lastCookies: String?
     private(set) var lastPerfSnapshot: String?
     private(set) var lastAccessibilityAudit: String?
     private let snapshotSemaphore = DispatchSemaphore(value: 0)
@@ -326,6 +328,12 @@ final class NooberClient: @unchecked Sendable {
         case .responseScreenHTML:
             lastScreenHTML = formatScreenHTMLResponse(message.payload)
             screenHTMLSemaphore.signal()
+        case .responseStorageWrite:
+            lastStorageWrite = formatStorageWriteResponse(message.payload)
+            storageSemaphore.signal()
+        case .responseCookies:
+            lastCookies = formatCookiesResponse(message.payload)
+            cookiesSemaphore.signal()
         case .responseSnapshot:
             lastSnapshot = formatSnapshotResponse(message.payload)
             snapshotSemaphore.signal()
@@ -599,6 +607,71 @@ final class NooberClient: @unchecked Sendable {
         currentScreen = resp.screen
         screenshotBase64 = resp.base64PNG
         return "Screen: \(resp.screen)\nScreenshot captured (\(resp.base64PNG.count) bytes base64)"
+    }
+
+    // MARK: - Storage Writes
+
+    private let storageSemaphore = DispatchSemaphore(value: 0)
+    private let storageLock = NSLock()
+    private let cookiesSemaphore = DispatchSemaphore(value: 0)
+    private let cookiesLock = NSLock()
+
+    /// Sends a write command and waits for the app to confirm it.
+    func requestStorageWrite(type: String, payload: [String: Any], timeout: TimeInterval = 3) -> String {
+        storageLock.lock()
+        defer { storageLock.unlock() }
+        guard isConnected else { return "Noober not connected" }
+        lastStorageWrite = nil
+        sendRawCommand(type: type, payload: payload)
+        if storageSemaphore.wait(timeout: .now() + timeout) == .timedOut {
+            return "Timed out waiting for the app to confirm the write"
+        }
+        return lastStorageWrite ?? "No response"
+    }
+
+    func requestCookies(timeout: TimeInterval = 3) -> String {
+        cookiesLock.lock()
+        defer { cookiesLock.unlock() }
+        guard isConnected else { return "Noober not connected" }
+        lastCookies = nil
+        sendRawCommand(type: "command.getCookies", payload: [:])
+        if cookiesSemaphore.wait(timeout: .now() + timeout) == .timedOut {
+            return "Timed out waiting for cookies"
+        }
+        return lastCookies ?? "No response"
+    }
+
+    private func formatStorageWriteResponse(_ payload: Data) -> String {
+        struct StorageWriteResponse: Decodable {
+            let ok: Bool
+            let detail: String
+        }
+        guard let resp = try? JSONDecoder().decode(StorageWriteResponse.self, from: payload) else {
+            return "Malformed write response"
+        }
+        return (resp.ok ? "OK: " : "FAILED: ") + resp.detail
+    }
+
+    private func formatCookiesResponse(_ payload: Data) -> String {
+        struct CookieData: Decodable {
+            let name: String, value: String, domain: String, path: String
+            let isSecure: Bool, isHTTPOnly: Bool
+            let expiresAt: Date?
+        }
+        struct CookiesResponse: Decodable { let cookies: [CookieData] }
+
+        let decoder = JSONDecoder()
+        guard let resp = try? decoder.decode(CookiesResponse.self, from: payload) else {
+            return "Malformed cookies response"
+        }
+        guard !resp.cookies.isEmpty else { return "No cookies set" }
+        return "Cookies (\(resp.cookies.count)):\n" + resp.cookies.map {
+            var flags: [String] = []
+            if $0.isSecure { flags.append("Secure") }
+            if $0.isHTTPOnly { flags.append("HttpOnly") }
+            let suffix = flags.isEmpty ? "" : " [\(flags.joined(separator: ", "))]"
+            return "  \($0.domain)\($0.path)  \($0.name)=\($0.value)\(suffix)"
+        }.joined(separator: "\n")
     }
 
     // MARK: - Screen HTML (semantic HTML encoding, optimized for LLM comprehension)

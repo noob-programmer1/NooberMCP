@@ -127,7 +127,44 @@ struct ToolHandler {
         case "noober_timeline":
             return timeline(client, sinceSeconds: args["since_seconds"] as? Int ?? 30, limit: args["limit"] as? Int ?? 50)
         case "noober_get_cookies":
-            return cookies(client)
+            return client.requestCookies()
+        case "noober_set_user_default":
+            guard let key = args["key"] as? String, let value = args["value"] as? String else {
+                return "key and value are required"
+            }
+            return client.requestStorageWrite(type: "command.setUserDefault",
+                                              payload: ["key": key, "value": value])
+        case "noober_remove_user_default":
+            guard let key = args["key"] as? String else { return "key is required" }
+            return client.requestStorageWrite(type: "command.removeUserDefault", payload: ["key": key])
+        case "noober_set_keychain":
+            guard let account = args["account"] as? String, let value = args["value"] as? String else {
+                return "account and value are required"
+            }
+            var payload: [String: Any] = ["account": account, "value": value]
+            if let service = args["service"] as? String { payload["service"] = service }
+            if let itemClass = args["itemClass"] as? String { payload["itemClass"] = itemClass }
+            return client.requestStorageWrite(type: "command.setKeychain", payload: payload)
+        case "noober_remove_keychain":
+            guard let account = args["account"] as? String else { return "account is required" }
+            var payload: [String: Any] = ["account": account]
+            if let service = args["service"] as? String { payload["service"] = service }
+            return client.requestStorageWrite(type: "command.removeKeychain", payload: payload)
+        case "noober_set_cookie":
+            guard let name = args["name"] as? String, let value = args["value"] as? String,
+                  let domain = args["domain"] as? String else {
+                return "name, value and domain are required"
+            }
+            var payload: [String: Any] = ["name": name, "value": value, "domain": domain]
+            if let path = args["path"] as? String { payload["path"] = path }
+            if let secure = args["isSecure"] as? Bool { payload["isSecure"] = secure }
+            if let ttl = args["expiresInSeconds"] as? Double { payload["expiresInSeconds"] = ttl }
+            return client.requestStorageWrite(type: "command.setCookie", payload: payload)
+        case "noober_remove_cookie":
+            guard let name = args["name"] as? String else { return "name is required" }
+            var payload: [String: Any] = ["name": name]
+            if let domain = args["domain"] as? String { payload["domain"] = domain }
+            return client.requestStorageWrite(type: "command.removeCookie", payload: payload)
         case "noober_assert_element":
             return assertElement(client, text: args["text"] as? String ?? "", state: args["state"] as? String ?? "exists")
         case "noober_verify_screen":

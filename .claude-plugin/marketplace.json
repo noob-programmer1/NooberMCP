@@ -11,7 +11,7 @@
       "displayName": "Noober",
       "source": "./plugins/noober",
       "description": "See inside your running iOS app: network calls, WebSocket frames, logs, UserDefaults, screen layout, and API mocking.",
-      "version": "1.0.1",
+      "version": "1.0.2",
       "category": "testing",
       "tags": ["ios", "testing", "qa", "debugging", "simulator", "network"],
       "author": {

@@ -22,6 +22,10 @@ public func NooberProbeBootstrap() {
     fputs("[NooberProbe] Injected into \(bundleId)\n", stderr)
     NSLog("[NooberProbe] Injected into %@", bundleId)
 
+    // Capture must be live before the app's first request. These are registration
+    // only — no UIKit — so they run now rather than inside the deferred start().
+    ProbeEarlyInstall.run()
+
     // Delay startup slightly so the app has time to create its UIWindow and
     // populate the view hierarchy. 0.5s is enough for most apps; the probe
     // will still discover windows lazily if something appears later.
