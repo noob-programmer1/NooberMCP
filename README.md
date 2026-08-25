@@ -48,11 +48,36 @@ Cursor / Windsurf / Codex (`.cursor/mcp.json`, `mcp.json`):
 The first run downloads a release archive to `~/.noober-mcp/`. Set `NOOBER_MCP_BIN` to
 point at a local build instead.
 
-## Add the SDK to your app
+## Connecting to your app
+
+Two ways. The first needs no code changes at all.
+
+### Without the SDK
+
+Launch the app through the tool with probe injection and Noober attaches as the
+process starts:
+
+```
+launch_app_sim(inject_probe: true)
+```
+
+That gives you network capture, screen reading, UI driving, logs, crash reports
+and mocking on an app that has never heard of Noober.
+
+Two constraints. It is **simulator-only** — injection rides on simctl's
+`DYLD_INSERT_LIBRARIES`, which has no equivalent on a real device, so testing on
+hardware means adding the SDK. And the app has to be launched by the tool, since
+injection happens at process start and can't attach to something already running.
+
+### With the SDK (optional)
+
+Adding one line to a DEBUG build gets you the rest: writing UserDefaults,
+Keychain and cookies, environment switching, the QA checklist, custom actions,
+the in-app debugger UI, and real devices over USB.
 
 ```swift
 // Package.swift
-.package(url: "https://github.com/noob-programmer1/Noober-iOS.git", from: "1.2.0")
+.package(url: "https://github.com/noob-programmer1/Noober-iOS.git", from: "1.4.1")
 
 // App startup — needs a live window scene, so call it from
 // didFinishLaunching or a root view's onAppear, not App.init.
@@ -61,6 +86,8 @@ import Noober
 Noober.shared.start()
 #endif
 ```
+
+The `/noober:setup` skill in the Claude Code plugin does this for you.
 
 ## What the agent can do
 
@@ -115,7 +142,7 @@ remove counterparts) change state in the running app, so a test can start from a
 session instead of tapping through a login. Writes are confirmed by the app and push a
 fresh sync, so an immediate read-back reflects the change.
 
-Requires the Noober SDK 1.4.1+ — the probe does not implement storage writes yet.
+Storage writes need the SDK — the probe does not implement them yet.
 
 **Two servers at once** — the HTTP API starts on 8686 and scans up to 8695 if that's
 taken, so a second instance still gets an API. The live port is written to
