@@ -14,8 +14,10 @@ Claude Code ──MCP──> noober-mcp ──TCP/Bonjour──> Noober SDK in y
 ## Requirements
 
 - macOS (iOS simulators and Xcode live there)
-- The Noober SDK integrated in a DEBUG build of your app
 - Node 18+ if installing via `npx`
+- An app to look at. A simulator build works as-is — no code changes. Adding the
+  [Noober SDK](https://github.com/noob-programmer1/Noober-iOS) (one line, DEBUG only)
+  unlocks storage writes and real devices. See [Connecting to your app](#connecting-to-your-app).
 
 ## Install
 
