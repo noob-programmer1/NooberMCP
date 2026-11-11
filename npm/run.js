@@ -30,7 +30,7 @@ const pkg = require('./package.json');
 const VERSION = pkg.version;
 const REPO = 'noob-programmer1/NooberMCP';
 
-// The release asset is a tarball, not a bare binary: NooberMCP resolves AXe and the
+// The release asset is a tarball, not a bare binary: NooberMCP resolves the
 // probe dylibs relative to its own location (<dir>/Bundled/...), so they must travel together.
 const INSTALL_DIR = path.join(os.homedir(), '.noober-mcp', `v${VERSION}`);
 const BINARY_PATH = path.join(INSTALL_DIR, 'NooberMCP');
@@ -100,15 +100,13 @@ async function ensureBinary() {
 
     // A truncated or HTML error body would otherwise be unpacked and executed.
     const { size } = fs.statSync(tarball);
-    if (size < 1000000) throw new Error(`downloaded asset is only ${size} bytes`);
+    if (size < 200000) throw new Error(`downloaded asset is only ${size} bytes`);
 
     execFileSync('tar', ['-xzf', tarball, '-C', stagingDir]);
     if (!fs.existsSync(path.join(stagingDir, 'NooberMCP'))) {
       throw new Error('release archive is missing the NooberMCP binary');
     }
     fs.chmodSync(path.join(stagingDir, 'NooberMCP'), 0o755);
-    const bundledAxe = path.join(stagingDir, 'Bundled', 'axe');
-    if (fs.existsSync(bundledAxe)) fs.chmodSync(bundledAxe, 0o755);
 
     fs.renameSync(stagingDir, INSTALL_DIR);
     console.error(`Installed to ${INSTALL_DIR}`);

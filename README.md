@@ -1,23 +1,44 @@
 # Noober MCP
 
-An MCP server that lets an AI coding agent see inside your **running iOS app** — network
-calls, WebSocket frames, logs, UserDefaults, Keychain, screen layout — and act on it:
-tap, swipe, type, mock an API response, switch environments, replay a request.
-
-It pairs with the [Noober SDK](https://github.com/noob-programmer1/Noober-iOS), which you
-add to your app's DEBUG build. The SDK opens a local socket; this server talks to it.
+An MCP server that lets an AI coding agent **drive** an iOS app — simulator or real iPhone —
+and **see inside it**: network calls, WebSocket frames, logs, UserDefaults, Keychain, screen
+layout. Tap, swipe, type, mock an API response, switch environments, replay a request.
 
 ```
-Claude Code ──MCP──> noober-mcp ──TCP/Bonjour──> Noober SDK in your app
+Claude Code ──MCP──> noober-mcp ─┬─ CoreSimulator (in-process HID + accessibility)   simulators
+                                 ├─ devicectl + CoreDevice tunnel                      real iPhones
+                                 ├─ xcrun mcpbridge                                    Xcode's own tools
+                                 └─ TCP/Bonjour ──> Noober SDK / probe in your app     network, logs, storage
 ```
+
+### What's new in 2.0
+
+- **Works on Xcode 27.** Xcode 27 moved SimulatorKit and routes input through Device Hub's
+  `dtuhidd`, which broke AXe/idb-based tools. Noober now talks to the simulator natively.
+- **No AXe, no idb, no Node child processes.** Input goes over XPC to the guest's
+  `dtuhidd` (Indigo HID fallback on Xcode ≤ 26). The release is ~13 MB lighter.
+- **Fast.** Connections stay warm: a tap is sub-millisecond to inject; `snapshot_ui` is
+  ~50–500 ms instead of spawning a CLI per call.
+- **Act → observe.** `tap`, `swipe`, `type_text`, `button` and `open_url` return what the
+  action caused — screen change, API calls with status codes, error logs, or a visible-text
+  diff — so the agent rarely needs a follow-up screenshot.
+- **Element refs.** `snapshot_ui` returns a compact outline with refs (`e7`) and centre
+  points for any app, SpringBoard alerts included. `tap(ref:"e7")` or `tap(label:"Pay")`.
+- **Real iPhones.** Screenshots, launch, terminate, install, deep links, appearance and
+  location via Xcode 27's `devicectl`. With the SDK in the app, taps/typing/network/logs work
+  over the CoreDevice tunnel — **no iproxy**.
+- **Xcode's own MCP tools.** `xcode_tools` / `xcode_call` proxy `xcrun mcpbridge`:
+  BuildProject, RunSomeTests, RenderPreview, DocumentationSearch, navigator issues and
+  Xcode 27's DeviceInteraction tools.
+- `wait_for` (text / API call / screen) instead of sleeps, and `doctor` to diagnose setups.
 
 ## Requirements
 
-- macOS (iOS simulators and Xcode live there)
+- macOS with Xcode (26.x or 27.x; 27 recommended for physical-device screenshots)
 - Node 18+ if installing via `npx`
 - An app to look at. A simulator build works as-is — no code changes. Adding the
   [Noober SDK](https://github.com/noob-programmer1/Noober-iOS) (one line, DEBUG only)
-  unlocks storage writes and real devices. See [Connecting to your app](#connecting-to-your-app).
+  unlocks storage writes and in-app access on real devices.
 
 ## Install
 
@@ -28,8 +49,7 @@ Claude Code ──MCP──> noober-mcp ──TCP/Bonjour──> Noober SDK in y
 /plugin install noober@noobqa
 ```
 
-The plugin ships a `/noober:setup` skill that adds the SDK to your app and wires up
-`start()` in the right place — run it once after installing.
+The plugin ships a `/noober:setup` skill that adds the SDK to your app.
 
 ### Any MCP client
 
@@ -37,14 +57,10 @@ The plugin ships a `/noober:setup` skill that adds the SDK to your app and wires
 claude mcp add noober -- npx -y noober-mcp
 ```
 
-Cursor / Windsurf / Codex (`.cursor/mcp.json`, `mcp.json`):
+Cursor / Windsurf / Codex:
 
 ```json
-{
-  "mcpServers": {
-    "noober": { "command": "npx", "args": ["-y", "noober-mcp"] }
-  }
-}
+{ "mcpServers": { "noober": { "command": "npx", "args": ["-y", "noober-mcp"] } } }
 ```
 
 The first run downloads a release archive to `~/.noober-mcp/`. Set `NOOBER_MCP_BIN` to
@@ -52,103 +68,86 @@ point at a local build instead.
 
 ## Connecting to your app
 
-Two ways. The first needs no code changes at all.
-
-### Without the SDK
-
-Launch the app through the tool with probe injection and Noober attaches as the
-process starts:
+### Simulator, no SDK
 
 ```
-launch_app_sim(inject_probe: true)
+launch_app_sim(bundleId: "com.example.app")
 ```
 
-That gives you network capture, screen reading, UI driving, logs, crash reports
-and mocking on an app that has never heard of Noober.
+The Noober probe is injected at launch (`DYLD_INSERT_LIBRARIES`), giving network capture,
+screen reading, logs, crash reports and mocking on an app that has never heard of Noober.
+The app must be launched by the tool, since injection happens at process start.
 
-Two constraints. It is **simulator-only** — injection rides on simctl's
-`DYLD_INSERT_LIBRARIES`, which has no equivalent on a real device, so testing on
-hardware means adding the SDK. And the app has to be launched by the tool, since
-injection happens at process start and can't attach to something already running.
+### Real iPhone
+
+```
+list_devices
+session_set_defaults(deviceId: "My iPhone", bundleId: "com.example.app")
+launch_app_sim
+```
+
+Screenshots and app lifecycle work on any paired device (Xcode 27 `devicectl`). For taps,
+typing and in-app data, the app needs the SDK in its DEBUG build; Noober connects to it
+through the device's CoreDevice tunnel automatically. Without the SDK, Xcode 27's
+DeviceInteraction tools are reachable through `xcode_call`.
 
 ### With the SDK (optional)
-
-Adding one line to a DEBUG build gets you the rest: writing UserDefaults,
-Keychain and cookies, environment switching, the QA checklist, custom actions,
-the in-app debugger UI, and real devices over USB.
 
 ```swift
 // Package.swift
 .package(url: "https://github.com/noob-programmer1/Noober-iOS.git", from: "1.4.1")
 
-// App startup — needs a live window scene, so call it from
-// didFinishLaunching or a root view's onAppear, not App.init.
+// After a window scene exists (didFinishLaunching or a root view's onAppear)
 #if DEBUG
 import Noober
 Noober.shared.start()
 #endif
 ```
 
-The `/noober:setup` skill in the Claude Code plugin does this for you.
+## Tools
 
-## What the agent can do
-
-| Capability | Tool |
+| Area | Tools |
 | --- | --- |
-| Read screen layout as HTML with tap coordinates | `noober_screen_html` |
-| Find an element / read visible text | `noober_find_element`, `noober_screen_text` |
-| Inspect network traffic | `noober_get_network_logs`, `noober_get_request_detail` |
-| Assert an API call happened | `noober_assert_request` |
-| Inspect WebSocket frames | `noober_get_websocket_logs` |
-| Read app logs | `noober_get_app_logs` |
-| Browse UserDefaults / Keychain / cookies | `noober_get_user_defaults`, `noober_get_cookies` |
-| Mock or intercept responses | `noober_add_mock_rule`, `noober_add_intercept_rule` |
-| Switch API environment | `noober_get_environment`, `noober_switch_environment` |
-| Replay a request | `noober_replay_request` |
-| Drive the UI | `tap`, `swipe`, `type_text`, `button` |
-| Simulator lifecycle | `list_sims`, `boot_sim`, `launch_app_sim`, `stop_app_sim` |
+| Target & lifecycle | `list_devices`, `session_set_defaults`, `boot_sim`, `open_sim`, `launch_app_sim`, `stop_app_sim`, `install_app`, `open_url`, `set_appearance`, `set_location` |
+| See the screen | `snapshot_ui` (refs + coordinates), `screenshot` (compact JPEG, `quality:"full"` for PNG), `wait_for` |
+| Drive the UI | `tap` (ref / label / x,y, `hold`, `double`), `swipe` (direction or points), `type_text`, `press_key`, `button` |
+| Inside the app | `noober_get_network_logs`, `noober_get_request_detail`, `noober_assert_request`, `noober_assert_flow`, `noober_timeline`, `noober_get_app_logs`, `noober_check_event`, `noober_screen_html`, `noober_find_element`, … |
+| Change app state | `noober_add_mock_rule`, `noober_add_intercept_rule`, `noober_switch_environment`, `noober_set_user_default`, `noober_set_keychain`, `noober_set_cookie`, `noober_replay_request` |
+| Xcode | `xcode_tools`, `xcode_call`, `noober_rebuild_app` |
+| Diagnostics | `doctor`, `noober_status` |
 
-Point the session at a simulator and app first:
-
-```
-session_set_defaults(simulatorId: "<udid>", bundleId: "com.example.app")
-```
+Coordinates are always iOS **points**, shared by `snapshot_ui`, `screenshot` and `tap`.
 
 ## How it works
 
-The SDK advertises `_noober._tcp` over Bonjour and also listens on TCP port 54321. Messages
-are length-prefixed JSON (4-byte big-endian length + body). On connect the app pushes a
-full state snapshot, then streams events. Commands travel the same socket, so `tap` and
-`type_text` work on physical devices over a USB tunnel, not just simulators.
+**Simulator input.** Noober loads CoreSimulator and SimulatorKit from the active Xcode
+(`xcode-select -p`), looks up the guest service
+`com.apple.coredevice.feature.remote.hid.digitizer` and sends `IndigoDigitizerEvent` /
+`IndigoKeyboardButtonEvent` / `IndigoButtonEvent` messages over XPC — the path Device Hub
+itself uses. If `dtuhidd` is absent (Xcode ≤ 26), it falls back to `SimDeviceLegacyHIDClient`.
+Force a transport with `NOOBER_HID_TRANSPORT=dtuhid|indigo`.
 
-Simulator-only operations (screenshots, boot/launch, and the fast tap path) shell out to
-[AXe](https://github.com/cameroncooke/AXe), which ships inside the release archive next to
-the server binary.
+**Accessibility.** `AXPTranslator` requests are bridged to
+`SimDevice.sendAccessibilityRequestAsync`, plus a point-grid pass that picks up SpringBoard
+alerts and containers that hide their children. `NOOBER_AX_GRID=0` disables the grid pass.
+
+**In-app.** The SDK/probe advertises `_noober._tcp` over Bonjour and listens on TCP 54321
+(length-prefixed JSON). Physical devices are reached at their CoreDevice tunnel address.
 
 ## Troubleshooting
 
-**"Noober not connected"** — the app must be running a DEBUG build with
-`Noober.shared.start()` called after the window scene exists, and the debug bubble should
-be visible.
+Run `doctor` first — it reports the Xcode in use, HID transport, accessibility, probe,
+devices, Noober connection and Xcode MCP status.
 
-**Simulator tools unavailable** — the server looks for `Bundled/axe` next to its own
-binary. If you built from source, run from the repo root so `Bundled/` is alongside it.
-
-**Two apps at once** — port 54321 is claimed by the first app; the second falls back to
-Bonjour. Connect to one app at a time for predictable results.
-
-### Writing app state
-
-`noober_set_user_default`, `noober_set_keychain` and `noober_set_cookie` (plus their
-remove counterparts) change state in the running app, so a test can start from a known
-session instead of tapping through a login. Writes are confirmed by the app and push a
-fresh sync, so an immediate read-back reflects the change.
-
-Storage writes need the SDK — the probe does not implement them yet.
-
-**Two servers at once** — the HTTP API starts on 8686 and scans up to 8695 if that's
-taken, so a second instance still gets an API. The live port is written to
-`~/.noober-mcp/port`. Set `NOOBER_PORT` to pin it and skip the scan.
+- **"Noober not connected"** — launch the app with `launch_app_sim` (simulator), or use a
+  DEBUG build that calls `Noober.shared.start()` after the window scene exists.
+- **Physical device screenshot is black** — the phone is locked or its display is off.
+- **Physical device "tunnel unavailable"** — unlock the phone and reconnect; check it with
+  `xcrun devicectl list devices`.
+- **`xcode_tools` fails** — open the project in Xcode and enable Settings › Intelligence ›
+  "Allow external agents to use Xcode tools".
+- **Ports** — the HTTP API starts on 8686 and scans to 8695; the live port is written to
+  `~/.noober-mcp/port`. Set `NOOBER_PORT` to pin it.
 
 ## Build from source
 
@@ -159,13 +158,16 @@ swift build -c release
 NOOBER_MCP_BIN=$PWD/.build/release/NooberMCP npx noober-mcp
 ```
 
-To develop against a local checkout of the SDK:
+Rebuild the probe with `NooberProbe/build.sh`. To develop against a local SDK checkout:
+`swift package edit noober-ios --path ../Noober`.
 
-```bash
-swift package edit noober-ios --path ../Noober
-```
+## Credits
+
+The native simulator layer follows techniques documented by
+[meta/idb](https://github.com/meta/idb) (MIT) — notably its dtuhid transport — and
+[EvanBacon/serve-sim](https://github.com/EvanBacon/serve-sim) (Apache-2.0). See
+[THIRD_PARTY_LICENSES.md](THIRD_PARTY_LICENSES.md).
 
 ## License
 
-MIT — see [LICENSE](LICENSE). Bundled third-party components are listed in
-[THIRD_PARTY_LICENSES.md](THIRD_PARTY_LICENSES.md).
+MIT — see [LICENSE](LICENSE).

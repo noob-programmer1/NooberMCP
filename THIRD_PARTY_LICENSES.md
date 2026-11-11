@@ -1,30 +1,21 @@
-# Third-party licenses
+# Third-party notices
 
-The NooberMCP release archive redistributes the following third-party components
-under `Bundled/`. Each is used unmodified and remains under its own license.
+NooberMCP 2.x no longer redistributes third-party binaries. Earlier releases bundled AXe
+and Meta's IDB frameworks; both have been replaced by native code in `Sources/Native/`.
 
-## AXe
+## Acknowledgements
 
-Simulator automation CLI (`Bundled/axe`), used for taps, swipes, text entry, and
-accessibility inspection on iOS simulators.
+The native simulator layer was written for this project, following protocols and
+techniques documented in these open-source projects:
 
-- Upstream: https://github.com/cameroncooke/AXe
-- Version bundled: v1.5.2
-- License: MIT — see https://github.com/cameroncooke/AXe/blob/main/LICENSE
-
-## Meta IDB frameworks
-
-`Bundled/Frameworks/` contains `FBControlCore.framework`,
-`FBDeviceControl.framework`, `FBSimulatorControl.framework`, and
-`XCTestBootstrap.framework`. These originate from Meta's iOS Development Bridge
-and ship as AXe's runtime dependencies.
-
-- Upstream: https://github.com/facebook/idb
-- License: MIT — see https://github.com/facebook/idb/blob/main/LICENSE
-- Additional attribution notices are carried in AXe's `THIRD_PARTY_LICENSES`:
-  https://github.com/cameroncooke/AXe/blob/main/THIRD_PARTY_LICENSES
+- **meta/idb** — the `dtuhidd` XPC transport (message envelope, `IndigoDigitizerEvent`,
+  keyboard/button payloads, guest service lookup via `xpc_endpoint_create_mach_port_4sim`)
+  and HID usage tables. MIT — https://github.com/meta/idb/blob/main/LICENSE
+- **EvanBacon/serve-sim** — the Xcode 27 SimulatorKit location, the
+  `IndigoHIDMessageForMouseNSEvent` signature, and `AXPTranslator` bridging with point-grid
+  discovery. Apache-2.0 — https://github.com/EvanBacon/serve-sim/blob/main/LICENSE
 
 ## NooberProbe
 
-`Bundled/NooberProbe.dylib` and `Bundled/NooberProbe_swift.dylib` are part of
-this project and are covered by the MIT license in [LICENSE](LICENSE).
+`Bundled/NooberProbe.dylib` is part of this project and is covered by the MIT license in
+[LICENSE](LICENSE).

@@ -83,9 +83,13 @@ final class NooberClient: @unchecked Sendable {
 
     private var hasSynced = false
 
+    /// When set (physical device over its CoreDevice tunnel), reconnects go straight to this
+    /// host instead of browsing Bonjour.
+    var directHost: String?
+
     /// Wait for Noober to connect + receive initial sync.
     /// If connection was lost, triggers reconnection and waits again.
-    func waitForConnection(timeout: TimeInterval = 5) {
+    func waitForConnection(timeout: TimeInterval = 5, waitForProbeReadyFile: Bool = true) {
         // Quick check — already connected and healthy
         if hasSynced && isConnected {
             // Verify connection is still alive by checking if the TCP connection is ready
@@ -95,9 +99,14 @@ final class NooberClient: @unchecked Sendable {
             forceDisconnect()
         }
 
+        if let host = directHost {
+            connectDirectTCP(host: host, port: 54321, timeout: min(timeout, 5))
+            return
+        }
+
         // Wait for probe ready file (probe writes /tmp/noobprobe_ready when Bonjour starts)
         let readyPath = "/tmp/noobprobe_ready"
-        let deadline = Date().addingTimeInterval(min(timeout, 5))
+        let deadline = Date().addingTimeInterval(waitForProbeReadyFile ? min(timeout, 5) : 0)
         while !FileManager.default.fileExists(atPath: readyPath) && Date() < deadline {
             Thread.sleep(forTimeInterval: 0.2)
         }
