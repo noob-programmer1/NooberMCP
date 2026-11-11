@@ -3,7 +3,7 @@
   "version": "2.0.0",
   "description": "MCP server for iOS app testing — see inside your running app: network calls, WebSocket frames, logs, UserDefaults, screen layout, and API mocking. Works with Claude Code, Cursor, Codex, Windsurf.",
   "bin": {
-    "noober-mcp": "./run.js"
+    "noober-mcp": "run.js"
   },
   "files": [
     "run.js",
